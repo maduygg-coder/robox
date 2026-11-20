@@ -1,0 +1,28 @@
+{
+  "name": "Gas Station Tycoon",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "Baseplate": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Position": [0, -0.5, 0],
+          "Size": [2048, 1, 2048]
+        }
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Station": { "$path": "src/Station.server.lua" }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "StationMenu": { "$path": "src/StationMenu.client.lua" }
+      }
+    }
+  }
+}

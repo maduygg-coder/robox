@@ -1,0 +1,60 @@
+name: Build and deploy Roblox staging
+
+on:
+  push:
+    branches: [main]
+    paths: [src/**, default.project.json, .github/workflows/roblox.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: roblox-staging
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check source
+        id: source
+        shell: bash
+        run: |
+          if [[ -s src/Station.server.lua && -s src/StationMenu.client.lua ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [[ -e src/Station.server.lua || -e src/StationMenu.client.lua ]]; then
+            echo "::error::Cần cả hai script trạm và menu."
+            exit 1
+          else
+            echo "::notice::Chưa nhập mã nguồn từ Roblox Studio."
+          fi
+      - name: Install Rojo
+        if: steps.source.outputs.ready == 'true'
+        run: cargo install rojo --version 7.5.1 --locked
+      - name: Build place
+        if: steps.source.outputs.ready == 'true'
+        run: rojo build default.project.json --output station.rbxl
+      - uses: actions/upload-artifact@v4
+        if: steps.source.outputs.ready == 'true'
+        with:
+          name: station
+          path: station.rbxl
+      - name: Publish to Roblox staging
+        if: steps.source.outputs.ready == 'true' && vars.ROBLOX_STAGING_ENABLED == 'true'
+        env:
+          UNIVERSE_ID: ${{ vars.ROBLOX_STAGING_UNIVERSE_ID }}
+          PLACE_ID: ${{ vars.ROBLOX_STAGING_PLACE_ID }}
+          API_KEY: ${{ secrets.ROBLOX_STAGING_API_KEY }}
+        shell: bash
+        run: |
+          if [[ ! "$UNIVERSE_ID" =~ ^[0-9]+$ || ! "$PLACE_ID" =~ ^[0-9]+$ || -z "$API_KEY" ]]; then
+            echo "::error::Thiếu ID của place staging hoặc API key."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error \
+            --header "x-api-key: $API_KEY" \
+            --header "Content-Type: application/octet-stream" \
+            --data-binary @station.rbxl \
+            "https://apis.roblox.com/universes/v1/$UNIVERSE_ID/places/$PLACE_ID/versions?versionType=Published"
